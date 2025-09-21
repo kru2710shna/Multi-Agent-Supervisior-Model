@@ -3,13 +3,12 @@ from __future__ import annotations
 from typing import Annotated, Literal
 
 from utils.model import get_chat_model
-from langgraph.graph import MessageState
 from langgraph.types import Command
-from travily import TavilyClient
+from tavily import TavilyClient
 from utils.config import settings
+from src.state_schema import State
 
-
-def writer_agent(state: MessageState) -> Command[Literal["Supervisor"]]:
+def writer_agent(state: State) -> Command[Literal["Supervisor"]]:
     """
     Writes a complete, publishable blog post with facts, citations, and SEO optimization.
     

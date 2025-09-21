@@ -1,11 +1,10 @@
 from __future__ import annotations
 from typing import Annotated , Literal 
-
+from src.state_schema import State 
 from utils.model import get_chat_model
-from langgraph.graph import MessageState
 from langgraph.types import Command
 
-def content_planner(state: MessageState) -> Command[Literal["Supervisor"]]:
+def content_planner(state: State) -> Command[Literal["Supervisor"]]:
     """Create a content stratergy and outline for the blog post
     
     Analyzes the user's request and creats a structured plan including:
@@ -24,15 +23,15 @@ def content_planner(state: MessageState) -> Command[Literal["Supervisor"]]:
         "Include: target audience, topic , research and content structure and tone reccomendation"
     )
     
-    message = state["message"] + [{"role": "system,", "content": system}]
+    messages = state["messages"] + [{"role": "system", "content": system}]
     
-    plan = model.invoke(message)
+    plan = model.invoke(messages)
     print("Content Planner: Planning completed")
     
     return Command(
         
         goto = "Supervisor",
         update= {
-            "message" : [plan, {"role": "user,", "content": "Planning completed. Ready to Research Phase"}]
+            "messages" : [plan, {"role": "user", "content": "Planning completed. Ready to Research Phase"}]
         }
     )

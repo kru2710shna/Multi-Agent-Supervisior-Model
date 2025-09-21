@@ -1,26 +1,20 @@
 from __future__ import annotations
-
 from pathlib import Path
 from typing import Literal
-
-from langgraph.graph import MessageState
 from langgraph.types import Command
-from langgraph.grpah import END
+from src.state_schema import State
 
 # Where to save published posts
 OUTPUTS_DIR = Path(__file__).resolve().parents[2] / "outputs"
-
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
-
-def publisher_agent(state: MessageState) -> Command[Literal["supervisor", "__end__"]]:
+def publisher_agent(state: State) -> Command[Literal["Supervisor", "__end__"]]:
     """
     Saves the final blog post content to a markdown file.
 
-    This agent:
     - Looks at the accumulated messages
     - Finds the writer agent's main output (blog post)
-    - Filters out system and transition messages
+    - Filters out system / transition messages
     - Writes the blog post to a markdown file
     """
 
@@ -29,50 +23,31 @@ def publisher_agent(state: MessageState) -> Command[Literal["supervisor", "__end
     messages = state["messages"]
     final_content = "⚠️ No content generated."
 
-    # Iterate backward to find last non-system message
+    # Iterate backward to find last non-system assistant message
     for msg in reversed(messages):
-        # Skip system-type messages
-        if hasattr(msg, "type") and msg.type == "system":
-            continue
-        if hasattr(msg, "role") and msg.role == "system":
+        role = msg.get("role") if isinstance(msg, dict) else getattr(msg, "role", None)
+        content = msg.get("content") if isinstance(msg, dict) else getattr(msg, "content", "")
+
+        if role == "system":
             continue
 
-        # Skip transition messages
+        if not str(content).strip():
+            continue
+
         if any(
-            phrase in str(msg.content)
+            phrase in str(content)
             for phrase in [
                 "Transitioning to",
-                "Moving to",
+                "Supervisor decided to call",
                 "Completed",
-                "Ready for",
-                "Content planning",
+                "Next step",
                 "Research completed",
                 "Writing completed",
-                "Supervisor decided to call",
             ]
         ):
             continue
 
-        # Skip empty content
-        if not str(msg.content).strip():
-            continue
-
-        # Skip research plans / outlines
-        if any(
-            phrase in str(msg.content)
-            for phrase in [
-                "What I’ll do next",
-                "Key data points I plan to include",
-                "Preliminary findings",
-                "How I’ll structure the draft",
-                "What I need from you",
-                "Next step",
-            ]
-        ):
-            continue
-
-        # First good match = our final content
-        final_content = str(msg.content)
+        final_content = str(content)
         break
 
     # Save to markdown file
@@ -83,7 +58,12 @@ def publisher_agent(state: MessageState) -> Command[Literal["supervisor", "__end
     print(f"✅ Publisher Agent: Blog post saved to {output_file}")
 
     return Command(
-        goto="__end__",  
-        update= [{"messages": [{"role": "system", "content": "Publication completed."}]},
-                 {"role": "user", "content": final_content}]
+        goto="__end__",
+        update={
+            "messages": state["messages"]
+            + [
+                {"role": "system", "content": "Publication completed."},
+                {"role": "assistant", "content": final_content},
+            ]
+        },
     )

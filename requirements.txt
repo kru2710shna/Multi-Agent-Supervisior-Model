@@ -1,0 +1,9 @@
+langgraph
+langchain
+langchain-core
+langchain-openai
+pydantic
+langgraph-cli
+tavily-python
+langchain-groq
+langchain-community
